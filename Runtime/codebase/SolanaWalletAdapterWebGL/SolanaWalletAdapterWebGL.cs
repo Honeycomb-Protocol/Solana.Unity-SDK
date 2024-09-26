@@ -312,6 +312,9 @@ namespace Solana.Unity.SDK
 
                 [DllImport("__Internal")]
                 private static extern void InitWalletAdapter(Action<bool> callback, string clusterName);
+
+                [DllImport("__Internal")]
+                private static extern void GetSignatureForAddress(string tx, string pubkey);
                 
                 
         #else
@@ -321,7 +324,8 @@ namespace Solana.Unity.SDK
                 private static void ExternSignMessageWallet(string walletName, string messageBase64, Action<string> callback){}
                 private static string ExternGetWallets(Action<string> callback){return null;}
                 private static void InitWalletAdapter(Action<bool> callback, string clusterName){}
-                
+                private static void GetSignatureForAddress(string tx, string pubkey) {};
+
         #endif
     }
 }
