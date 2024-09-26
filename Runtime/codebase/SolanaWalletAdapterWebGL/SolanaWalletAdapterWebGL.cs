@@ -221,7 +221,7 @@ namespace Solana.Unity.SDK
                 _signedTransactionTaskCompletionSource.TrySetResult(null);
                 return;
             }
-            _currentTransaction.AddSignature(new SignaturePubKeyPair()
+            _currentTransaction.Signatures.Add(new SignaturePubKeyPair()
             {
                 PublicKey = _account.PublicKey,
                 Signature = Convert.FromBase64String(signature)
@@ -246,7 +246,7 @@ namespace Solana.Unity.SDK
             string[] signaturesList = signatures.Split(',');
             for (int i = 0; i < signaturesList.Length; i++)
             {
-                _currentTransactions[i].AddSignature(new SignaturePubKeyPair()
+                _currentTransactions[i].Signatures.Add(new SignaturePubKeyPair()
                 {
                     PublicKey = _account.PublicKey,
                     Signature = Convert.FromBase64String(signaturesList[i])
