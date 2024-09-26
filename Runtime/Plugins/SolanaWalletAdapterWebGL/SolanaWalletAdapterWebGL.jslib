@@ -1,13 +1,5 @@
-const getSignatureForAddress = (tx, pubkey = window.userPublicKeySolanaMagicLink) => {
-  let index = tx.signatures[0].publicKey ? tx.signatures.findIndex((signature) => signature.publicKey.toString() == pubkey) : tx.message.getAccountKeys().keySegments().flat().findIndex((signature) => signature.publicKey.toString() == pubkey)  
-  if (index > -1 && tx.message.isAccountSigner(index)) {
-    const sig = tx.signatures[index];
-    if (sig.signature || sig) return Buffer.from(sig.signature || sig);
-  }
-  return null;
-}
 mergeInto(LibraryManager.library, {
-   getSignatureForAddress: (
+   GetSignatureForAddress: (
     tx,
     pubkey = window.userPublicKeySolanaMagicLink
   ) => {
@@ -103,7 +95,7 @@ mergeInto(LibraryManager.library, {
           base64transaction
         );
       }
-      let signature = getSignatureForAddress(signedTransaction);
+      let signature = asmLibraryArg.GetSignatureForAddress(signedTransaction);
       let signatureStr = signature ? signature.toString("base64") : "";
       var bufferSize = lengthBytesUTF8(signatureStr) + 1;
       var txPtr = _malloc(bufferSize);
@@ -184,7 +176,7 @@ mergeInto(LibraryManager.library, {
       var serializedSignedTransactions = [];
       for (var i = 0; i < signedTransactions.length; i++) {
         var signedTransaction = signedTransactions[i];
-        let signature = getSignatureForAddress(signedTransaction);
+        let signature = asmLibraryArg.GetSignatureForAddress(signedTransaction);
         let signatureStr = signature ? signature.toString("base64") : "";
         serializedSignedTransactions.push(signatureStr);
       }
