@@ -109,7 +109,7 @@ namespace Solana.Unity.SDK
         {
             foreach (Transaction transaction in transactions)
             {
-                transaction.Sign(Account);
+                transaction.PartialSign(Account);
             }
             return Task.FromResult(transactions);
         }

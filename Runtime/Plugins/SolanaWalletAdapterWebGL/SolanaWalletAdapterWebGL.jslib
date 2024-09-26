@@ -1,3 +1,11 @@
+const getSignatureForAddress = (tx, pubkey = window.userPublicKeySolanaMagicLink) => {
+  let index = tx.signatures[0].publicKey ? tx.signatures.findIndex((signature) => signature.publicKey.toString() == pubkey) : tx.message.getAccountKeys().keySegments().flat().findIndex((signature) => signature.publicKey.toString() == pubkey)  
+  if (index > -1 && tx.message.isAccountSigner(index)) {
+    const sig = tx.signatures[index];
+    if (sig.signature || sig) return Buffer.from(sig.signature || sig);
+  }
+  return null;
+}
 mergeInto(LibraryManager.library, {
   InitWalletAdapter: async function (callback, rpcClusterPtr) {
     const isXnft = Boolean(
@@ -42,6 +50,7 @@ mergeInto(LibraryManager.library, {
       } else {
         pubKey = await window.walletAdapterLib.connectWallet(walletName);
       }
+      window.userPublicKeySolanaMagicLink = pubKey;
       if (pubKey == undefined) {
         throw new Error("Unable to connect to: " + walletName);
       }
@@ -75,10 +84,11 @@ mergeInto(LibraryManager.library, {
           base64transaction
         );
       }
-      let txStr = Buffer.from(signedTransaction.serialize()).toString("base64");
-      var bufferSize = lengthBytesUTF8(txStr) + 1;
+      let signature = getSignatureForAddress(signedTransaction);
+      let signatureStr = signature ? signature.toString("base64") : "";
+      var bufferSize = lengthBytesUTF8(signatureStr) + 1;
       var txPtr = _malloc(bufferSize);
-      stringToUTF8(txStr, txPtr, bufferSize);
+      stringToUTF8(signatureStr, txPtr, bufferSize);
       Module.dynCall_vi(callback, txPtr);
     } catch (err) {
       console.error(err.message);
@@ -155,8 +165,9 @@ mergeInto(LibraryManager.library, {
       var serializedSignedTransactions = [];
       for (var i = 0; i < signedTransactions.length; i++) {
         var signedTransaction = signedTransactions[i];
-        var txStr = Buffer.from(signedTransaction.serialize()).toString("base64");
-        serializedSignedTransactions.push(txStr);
+        let signature = getSignatureForAddress(signedTransaction);
+        let signatureStr = signature ? signature.toString("base64") : "";
+        serializedSignedTransactions.push(signatureStr);
       }
       var txsStr = serializedSignedTransactions.join(",");
       var bufferSize = lengthBytesUTF8(txsStr) + 1;
