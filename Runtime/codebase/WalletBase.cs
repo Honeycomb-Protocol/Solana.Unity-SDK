@@ -399,14 +399,15 @@ namespace Solana.Unity.SDK
         /// <param name="allowEmptySignatures"></param>
         /// <returns></returns>
         private static List<SignaturePubKeyPair> DeduplicateTransactionSignatures(
-            List<SignaturePubKeyPair> signatures, bool allowEmptySignatures = false)
+            List<SignaturePubKeyPair> signatures, bool allowEmptySignatures = false, bool preferNonEmptySignature = true)
         {
             var signaturesList = new List<SignaturePubKeyPair>();
             var signaturesSet = new HashSet<PublicKey>();
             var emptySgn = new byte[64];
             foreach (var sgn in signatures)
             {
-                if (sgn.Signature.SequenceEqual(emptySgn) && !allowEmptySignatures)
+                if (signaturesSet.Contains(sgn.PublicKey)) continue;
+                if (sgn.Signature.SequenceEqual(emptySgn) && (!allowEmptySignatures || preferNonEmptySignature))
                 {
                     var notEmptySig = signatures.FirstOrDefault(
                         s => s.PublicKey.Equals(sgn.PublicKey) && !s.Signature.SequenceEqual(emptySgn));

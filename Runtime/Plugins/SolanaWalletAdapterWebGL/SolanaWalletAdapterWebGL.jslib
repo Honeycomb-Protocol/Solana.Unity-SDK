@@ -7,6 +7,25 @@ const getSignatureForAddress = (tx, pubkey = window.userPublicKeySolanaMagicLink
   return null;
 }
 mergeInto(LibraryManager.library, {
+   getSignatureForAddress: (
+    tx,
+    pubkey = window.userPublicKeySolanaMagicLink
+  ) => {
+    let index = tx.signatures[0].publicKey
+      ? tx.signatures.findIndex(
+          (signature) => signature.publicKey.toString() == pubkey
+        )
+      : tx.message
+          .getAccountKeys()
+          .keySegments()
+          .flat()
+          .findIndex((publicKey) => publicKey.toString() == pubkey);
+    if (index > -1 && tx.message.isAccountSigner(index)) {
+      const sig = tx.signatures[index];
+      if (sig.signature || sig) return Buffer.from(sig.signature || sig);
+    }
+    return null;
+  },
   InitWalletAdapter: async function (callback, rpcClusterPtr) {
     const isXnft = Boolean(
       "xnft" in window &&
