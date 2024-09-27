@@ -1,8 +1,7 @@
 mergeInto(LibraryManager.library, {
-   GetSignatureForAddress: (
-    tx,
-    pubkey = window.userPublicKeySolanaMagicLink
-  ) => {
+  GetSignatureForAddress: async function (tx, pubkey) {
+    if (!pubkey) pubkey = window.userPublicKeySolanaMagicLink;
+    if (!tx || !pubkey) return null;
     let index = tx.signatures[0].publicKey
       ? tx.signatures.findIndex(
           (signature) => signature.publicKey.toString() == pubkey
@@ -95,7 +94,9 @@ mergeInto(LibraryManager.library, {
           base64transaction
         );
       }
-      let signature = asmLibraryArg.GetSignatureForAddress(signedTransaction);
+      let signature = await asmLibraryArg.GetSignatureForAddress(
+        signedTransaction
+      );
       let signatureStr = signature ? signature.toString("base64") : "";
       var bufferSize = lengthBytesUTF8(signatureStr) + 1;
       var txPtr = _malloc(bufferSize);
@@ -119,11 +120,13 @@ mergeInto(LibraryManager.library, {
         const messageBytes = Uint8Array.from(atob(base64Message), (c) =>
           c.charCodeAt(0)
         );
-        var signedMessage = await window.xnft.solana.signMessage(
-          messageBytes
-        );
-        if (typeof signedMessage === 'object' && signedMessage !== null && 'signature' in signedMessage) {
-            signedMessage = signedMessage.signature;
+        var signedMessage = await window.xnft.solana.signMessage(messageBytes);
+        if (
+          typeof signedMessage === "object" &&
+          signedMessage !== null &&
+          "signature" in signedMessage
+        ) {
+          signedMessage = signedMessage.signature;
         }
         signatureStr = btoa(String.fromCharCode(...signedMessage));
       } else {
@@ -131,7 +134,7 @@ mergeInto(LibraryManager.library, {
           walletName,
           atob(base64Message)
         );
-        if(signature instanceof Uint8Array) {
+        if (signature instanceof Uint8Array) {
           signatureStr = btoa(String.fromCharCode(...signature));
         } else {
           signatureStr = signature.toString("base64");
@@ -176,7 +179,9 @@ mergeInto(LibraryManager.library, {
       var serializedSignedTransactions = [];
       for (var i = 0; i < signedTransactions.length; i++) {
         var signedTransaction = signedTransactions[i];
-        let signature = asmLibraryArg.GetSignatureForAddress(signedTransaction);
+        let signature = await asmLibraryArg.GetSignatureForAddress(
+          signedTransaction
+        );
         let signatureStr = signature ? signature.toString("base64") : "";
         serializedSignedTransactions.push(signatureStr);
       }
