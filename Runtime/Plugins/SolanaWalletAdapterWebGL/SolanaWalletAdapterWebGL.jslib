@@ -11,7 +11,7 @@ mergeInto(LibraryManager.library, {
           .keySegments()
           .flat()
           .findIndex((publicKey) => publicKey.toString() == pubkey);
-    if (index > -1 && tx.message.isAccountSigner(index)) {
+    if (index > -1) {
       const sig = tx.signatures[index];
       if (sig.signature || sig) return Buffer.from(sig.signature || sig);
     }
@@ -47,7 +47,7 @@ mergeInto(LibraryManager.library, {
       stringToUTF8(wallets, walletsPtr, bufferSize);
       Module.dynCall_vi(callback, walletsPtr);
     } catch (err) {
-      console.error(err.message);
+      console.error(err);
       Module.dynCall_vi(callback, null);
     }
   },
@@ -69,7 +69,7 @@ mergeInto(LibraryManager.library, {
       stringToUTF8(pubKey, pubKeyPtr, bufferSize);
       Module.dynCall_vi(callback, pubKeyPtr);
     } catch (err) {
-      console.error(err.message);
+      console.error(err);
       Module.dynCall_vi(callback, null);
     }
   },
@@ -78,34 +78,11 @@ mergeInto(LibraryManager.library, {
     transactionPtr,
     callback
   ) {
-    try {
-      const walletName = UTF8ToString(walletNamePtr);
-      var base64transaction = UTF8ToString(transactionPtr);
-      let signedTransaction;
-      if (walletName === "XNFT") {
-        const transaction =
-          window.walletAdapterLib.getTransactionFromStr(base64transaction);
-        signedTransaction = await window.xnft.solana.signTransaction(
-          transaction
-        );
-      } else {
-        signedTransaction = await window.walletAdapterLib.signTransaction(
-          walletName,
-          base64transaction
-        );
-      }
-      let signature = await asmLibraryArg.GetSignatureForAddress(
-        signedTransaction
-      );
-      let signatureStr = signature ? signature.toString("base64") : "";
-      var bufferSize = lengthBytesUTF8(signatureStr) + 1;
-      var txPtr = _malloc(bufferSize);
-      stringToUTF8(signatureStr, txPtr, bufferSize);
-      Module.dynCall_vi(callback, txPtr);
-    } catch (err) {
-      console.error(err.message);
-      Module.dynCall_vi(callback, null);
-    }
+    await asmLibraryArg.ExternSignAllTransactionsWallet(
+      walletNamePtr,
+      transactionPtr,
+      callback
+    );
   },
   ExternSignMessageWallet: async function (
     walletNamePtr,
@@ -145,7 +122,7 @@ mergeInto(LibraryManager.library, {
       stringToUTF8(signatureStr, signaturePtr, bufferSize);
       Module.dynCall_vi(callback, signaturePtr);
     } catch (err) {
-      console.error(err.message);
+      console.error(err);
       Module.dynCall_vi(callback, null);
     }
   },
@@ -159,6 +136,9 @@ mergeInto(LibraryManager.library, {
       var base64transactionsStr = UTF8ToString(transactionsPtr);
       var base64transactions = base64transactionsStr.split(",");
       let signedTransactions;
+      const instructionIxCounts = [];
+      debugger;
+
       if (walletName === "XNFT") {
         let transactions = [];
         for (var i = 0; i < base64transactions.length; i++) {
@@ -166,6 +146,10 @@ mergeInto(LibraryManager.library, {
             base64transactions[i]
           );
           transactions.push(transaction);
+          instructionIxCounts.push(
+            (transaction.getInstructions?.() || transaction.instructions)
+              ?.length
+          );
         }
         signedTransactions = await window.xnft.solana.signAllTransactions(
           transactions
@@ -179,11 +163,21 @@ mergeInto(LibraryManager.library, {
       var serializedSignedTransactions = [];
       for (var i = 0; i < signedTransactions.length; i++) {
         var signedTransaction = signedTransactions[i];
-        let signature = await asmLibraryArg.GetSignatureForAddress(
-          signedTransaction
-        );
-        let signatureStr = signature ? signature.toString("base64") : "";
-        serializedSignedTransactions.push(signatureStr);
+        let after = (
+          signedTransaction.getInstructions?.() ||
+          signedTransaction.instructions
+        )?.length;
+        if (after != instructionIxCounts[i]) {
+          serializedSignedTransactions.push(
+            Buffer.from(signedTransaction.serialize()).toString("base64")
+          );
+        } else {
+          let signature = await asmLibraryArg.GetSignatureForAddress(
+            signedTransaction
+          );
+          let signatureStr = signature ? signature.toString("base64") : "";
+          serializedSignedTransactions.push("s:" + signatureStr);
+        }
       }
       var txsStr = serializedSignedTransactions.join(",");
       var bufferSize = lengthBytesUTF8(txsStr) + 1;
@@ -191,7 +185,8 @@ mergeInto(LibraryManager.library, {
       stringToUTF8(txsStr, txsPtr, bufferSize);
       Module.dynCall_vi(callback, txsPtr);
     } catch (err) {
-      console.error(err.message);
+      console.error(err);
+
       Module.dynCall_vi(callback, null);
     }
   },
