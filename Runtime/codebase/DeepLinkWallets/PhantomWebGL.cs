@@ -19,8 +19,10 @@ namespace Solana.Unity.SDK
         
         private static TaskCompletionSource<Account> _loginTaskCompletionSource;
         private static TaskCompletionSource<Transaction> _signedTransactionTaskCompletionSource;
+        private static TaskCompletionSource<Transaction[]> _signedTransactionsTaskCompletionSource;
         private static TaskCompletionSource<byte[]> _signedMessageTaskCompletionSource;        
         private static Transaction _currentTransaction;
+        private static Transaction[] _currentTransactions;
         private static Account _account;
 
         public PhantomWebGL(
@@ -47,10 +49,27 @@ namespace Solana.Unity.SDK
             return _signedTransactionTaskCompletionSource.Task;
         }
 
+        protected override Task<Transaction> _SignTransaction(Transaction transaction)
+        {
+            _signedTransactionTaskCompletionSource = new TaskCompletionSource<Transaction>();
+            var base64TransactionStr = Convert.ToBase64String(transaction.Serialize()) ;
+            ExternSignTransactionWallet(_currentWallet.name,base64TransactionStr, OnTransactionSigned);
+            return _signedTransactionTaskCompletionSource.Task;
+        }
         protected override Task<Transaction[]> _SignAllTransactions(Transaction[] transactions)
         {
-            throw new NotImplementedException();
+            _signedAllTransactionsTaskCompletionSource = new TaskCompletionSource<Transaction[]>();
+            _currentTransactions = transactions;
+            string[] base64Transactions = new string[transactions.Length];
+            for (int i = 0; i < transactions.Length; i++)
+            {
+                base64Transactions[i] = Encoders.Base58.EncodeData(transactions[i].Serialize());
+            }
+            var base64TransactionsStr = string.Join(",", base64Transactions);
+            ExternSignAllTransactions(_currentWallet.name,base64TransactionsStr, OnAllTransactionsSigned);
+            return _signedAllTransactionsTaskCompletionSource.Task;
         }
+
 
         public override Task<byte[]> SignMessage(byte[] message)
         {
@@ -89,6 +108,22 @@ namespace Solana.Unity.SDK
                 Signature = Encoders.Base58.DecodeData(signature)
             });
             _signedTransactionTaskCompletionSource.SetResult(_currentTransaction);
+        }
+        /// <summary>
+        /// Called from java script when the phantom wallet signed the transaction and return the signature
+        /// that we then need to put into the transaction before we send it out.
+        /// </summary>
+        [MonoPInvokeCallback(typeof(Action<string>))]
+        public static void OnTransactionsSigned(string[] signatures)
+        {
+            for (int i = 0; i< signatures.Length; i++) {
+                _currentTransactions[i].Signatures.Add(new SignaturePubKeyPair()
+                {
+                    PublicKey = _account.PublicKey,
+                    Signature = Encoders.Base58.DecodeData(signatures[i])
+                });
+            }
+            _signedTransactionsTaskCompletionSource.SetResult(_currentTransactions);
         }
 
         /// <summary>

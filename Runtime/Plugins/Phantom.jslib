@@ -22,13 +22,51 @@ mergeInto(LibraryManager.library, {
     ExternSignTransaction: async function (transaction, callback) {
         if ('phantom' in window && window.phantom != undefined && window.phantom.solana != undefined) {
             try {
-               const signedTransaction = await window.phantom.solana.request({
-                  method: 'signTransaction',
-                  params: {
-                     message: UTF8ToString(transaction),
-                  },
-               });
+                const signedTransaction = await window.phantom.solana.request({
+                    method: 'signTransaction',
+                    params: {
+                        message: UTF8ToString(transaction),
+                    },
+                });
                 console.log(signedTransaction);
+                var sign = signedTransaction.signature;
+                var lenSign = lengthBytesUTF8(sign) + 1;
+                var strPtr = _malloc(lenSign);
+                stringToUTF8(sign, strPtr, lenSign);
+                Module.dynCall_vi(callback, strPtr);
+            } catch (err) {
+                console.error(err.message);
+            }
+        } else {
+            window.alert('Please install phantom browser extension.');
+        }
+    },
+
+    ExternSignAllTransactions: async function (transactions, callback) {
+        if ('phantom' in window && window.phantom != undefined && window.phantom.solana != undefined) {
+            try {
+                var base58transactionsStr = UTF8ToString(transactions);
+                var base58transactions = base58transactionsStr.split(",");
+                const signedTransactions = await window.phantom.solana.request({
+                    method: 'signAllTransactions',
+                    params: {
+                        message: base58transactions,
+                    },
+                });
+                console.log(signedTransactions);
+
+
+                var serializedSignedTransactions = [];
+                for (var i = 0; i < signedTransactions.length; i++) {
+                  var signedTransaction = signedTransactions[i];
+                  var txStr = Buffer.from(signedTransaction.serialize()).toString("base58");
+                  serializedSignedTransactions.push(txStr);
+                }
+                var txsStr = serializedSignedTransactions.join(",");
+
+
+
+
                 var sign = signedTransaction.signature;
                 var lenSign = lengthBytesUTF8(sign) + 1;
                 var strPtr = _malloc(lenSign);
@@ -46,14 +84,14 @@ mergeInto(LibraryManager.library, {
     ExternSignMessage: async function (message, callback) {
         if ('phantom' in window && window.phantom != undefined && window.phantom.solana != undefined) {
             try {
-               const messageBase64String = UTF8ToString(message);
-               const messageBytes = Uint8Array.from(atob(messageBase64String), (c) => c.charCodeAt(0));
-               const signedMessage = await window.phantom.solana.request({
-                  method: 'signMessage',
-                  params: {
-                     message: messageBytes
-                  },
-               });
+                const messageBase64String = UTF8ToString(message);
+                const messageBytes = Uint8Array.from(atob(messageBase64String), (c) => c.charCodeAt(0));
+                const signedMessage = await window.phantom.solana.request({
+                    method: 'signMessage',
+                    params: {
+                        message: messageBytes
+                    },
+                });
                 console.log(signedMessage);
                 var sign = signedMessage.signature;
                 var lenSign = lengthBytesUTF8(sign) + 1;
@@ -67,5 +105,5 @@ mergeInto(LibraryManager.library, {
             window.alert('Please install phantom browser extension.');
         }
     },
-    
+
 });

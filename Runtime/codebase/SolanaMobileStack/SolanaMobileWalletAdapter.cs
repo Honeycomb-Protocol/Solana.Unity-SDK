@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Solana.Unity.Rpc.Models;
@@ -10,7 +11,7 @@ using WebSocketSharp;
 
 namespace Solana.Unity.SDK
 {
-    
+
     [Serializable]
     public class SolanaMobileWalletAdapterOptions
     {
@@ -19,13 +20,13 @@ namespace Solana.Unity.SDK
         public string name = "Solana.Unity-SDK";
         public bool keepConnectionAlive = true;
     }
-    
-    
+
+
     [Obsolete("Use SolanaWalletAdapter class instead, which is the cross platform wrapper.")]
     public class SolanaMobileWalletAdapter : WalletBase
     {
         private readonly SolanaMobileWalletAdapterOptions _walletOptions;
-        
+
         private Transaction _currentTransaction;
 
         private TaskCompletionSource<Account> _loginTaskCompletionSource;
@@ -35,9 +36,9 @@ namespace Solana.Unity.SDK
 
         public SolanaMobileWalletAdapter(
             SolanaMobileWalletAdapterOptions solanaWalletOptions,
-            RpcCluster rpcCluster = RpcCluster.DevNet, 
-            string customRpcUri = null, 
-            string customStreamingRpcUri = null, 
+            RpcCluster rpcCluster = RpcCluster.DevNet,
+            string customRpcUri = null,
+            string customStreamingRpcUri = null,
             bool autoConnectOnStartup = false) : base(rpcCluster, customRpcUri, customStreamingRpcUri, autoConnectOnStartup
         )
         {
@@ -86,6 +87,14 @@ namespace Solana.Unity.SDK
 
         protected override async Task<Transaction> _SignTransaction(Transaction transaction)
         {
+            var result = await _SignAllTransactions(new Transaction[] { transaction });
+            return result[0];
+        }
+
+
+        protected override async Task<Transaction[]> _SignAllTransactions(Transaction[] transactions)
+        {
+
             var cluster = RPCNameMap[(int)RpcCluster];
             SignedResult res = null;
             var localAssociationScenario = new LocalAssociationScenario();
@@ -107,15 +116,12 @@ namespace Solana.Unity.SDK
                             authorization = await client.Reauthorize(
                                 new Uri(_walletOptions.identityUri),
                                 new Uri(_walletOptions.iconUri, UriKind.Relative),
-                                _walletOptions.name, _authToken);   
+                                _walletOptions.name, _authToken);
                         }
                     },
                     async client =>
                     {
-                        res = await client.SignTransactions(new List<byte[]>
-                        {
-                            transaction.Serialize()
-                        });
+                        res = await client.SignTransactions(transactions.Select(transaction => transaction.Serialize()).ToList());
                     }
                 }
             );
@@ -125,14 +131,9 @@ namespace Solana.Unity.SDK
                 throw new Exception(result.Error.Message);
             }
             _authToken = authorization.AuthToken;
-            return Transaction.Deserialize(res.SignedPayloads[0]);
+            return res.SignedPayloads.Select(transaction => Transaction.Deserialize(transaction)).ToArray();
         }
 
-
-        protected override Task<Transaction[]> _SignAllTransactions(Transaction[] transactions)
-        {
-            throw new NotImplementedException();
-        }
 
         public override void Logout()
         {
@@ -164,7 +165,7 @@ namespace Solana.Unity.SDK
                             authorization = await client.Reauthorize(
                                 new Uri(_walletOptions.identityUri),
                                 new Uri(_walletOptions.iconUri, UriKind.Relative),
-                                _walletOptions.name, _authToken);   
+                                _walletOptions.name, _authToken);
                         }
                     },
                     async client =>

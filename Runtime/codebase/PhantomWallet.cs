@@ -106,6 +106,8 @@ namespace Solana.Unity.SDK
 
         protected override Task<Transaction[]> _SignAllTransactions(Transaction[] transactions)
         {
+            if (_internalWallet != null)
+                return _internalWallet.SignAllTransactions(transaction);
             throw new NotImplementedException();
         }
 
