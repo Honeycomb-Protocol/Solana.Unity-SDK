@@ -357,7 +357,7 @@ namespace Solana.Unity.SDK
         private static void ExternSignMessageWallet(string walletName, string messageBase64, Action<string> callback) { }
         private static string ExternGetWallets(Action<string> callback) { return null; }
         private static void InitWalletAdapter(Action<bool> callback, string clusterName) { }
-        private static void GetSignatureForAddress() { };
+        private static void GetSignatureForAddress() { }
 
 #endif
     }

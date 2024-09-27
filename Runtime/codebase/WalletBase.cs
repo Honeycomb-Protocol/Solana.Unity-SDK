@@ -9,6 +9,7 @@ using Solana.Unity.Rpc.Core.Http;
 using Solana.Unity.Rpc.Models;
 using Solana.Unity.Rpc.Types;
 using Solana.Unity.Wallet;
+using Solana.Unity.Wallet.Utilities;
 using Solana.Unity.Wallet.Bip39;
 using UnityEngine;
 using WebSocketSharp;
@@ -159,7 +160,7 @@ namespace Solana.Unity.SDK
                 amount,
                 Account
             ));
-            return await SignAndSendTransaction(transaction, commitment: commitment);
+            return await SignAndSendTransaction(transaction, commitment: commitment, skipPreflight: true);
         }
 
         /// <inheritdoc />
@@ -214,13 +215,33 @@ namespace Solana.Unity.SDK
         /// <returns></returns>
         protected abstract Task<Transaction> _SignTransaction(Transaction transaction);
 
+        private void LogSignatures(string message, List<SignaturePubKeyPair> Signatures)
+        {
+            if (Signatures.Count > 0)
+            {
+                Debug.LogFormat("{0} {1}", message, Signatures.Count.ToString());
+                foreach (var signature in Signatures)
+                {
+                    Debug.LogFormat("{0} -> {1}:{2}", message, Encoders.Base58.EncodeData(signature.PublicKey), Encoders.Base58.EncodeData(signature.Signature));
+                }
+            }
+            else
+            {
+                Debug.LogWarning(message + " No signatures found in the transaction.");
+            }
+        }
         /// <inheritdoc />
         public virtual async Task<Transaction> SignTransaction(Transaction transaction)
         {
+            LogSignatures("1", transaction.Signatures);
             transaction.Sign(Account);
+            LogSignatures("2", transaction.Signatures);
             transaction.Signatures = DeduplicateTransactionSignatures(transaction.Signatures, allowEmptySignatures: true);
+            LogSignatures("3", transaction.Signatures);
             var tx = await _SignTransaction(transaction);
+            LogSignatures("4", transaction.Signatures);
             tx.Signatures = DeduplicateTransactionSignatures(tx.Signatures);
+            LogSignatures("5", transaction.Signatures);
             return tx;
         }
 
@@ -235,16 +256,21 @@ namespace Solana.Unity.SDK
         /// <inheritdoc />
         public virtual async Task<Transaction[]> SignAllTransactions(Transaction[] transactions)
         {
+            LogSignatures("1", transactions[0].Signatures);
             foreach (var transaction in transactions)
             {
                 transaction.PartialSign(Account);
+                LogSignatures("2", transaction.Signatures);
                 transaction.Signatures = DeduplicateTransactionSignatures(transaction.Signatures, allowEmptySignatures: true);
+                LogSignatures("3", transaction.Signatures);
             }
             Transaction[] signedTxs = await _SignAllTransactions(transactions);
+            LogSignatures("4", transactions[0].Signatures);
             for (int i = 0; i < signedTxs.Length; i++)
             {
                 signedTxs[i].Signatures = DeduplicateTransactionSignatures(signedTxs[i].Signatures);
             }
+            LogSignatures("5", transactions[0].Signatures);
             return signedTxs;
         }
 
@@ -256,6 +282,7 @@ namespace Solana.Unity.SDK
             Commitment commitment = Commitment.Confirmed)
         {
             var signedTransaction = await SignTransaction(transaction);
+            // var signedTransaction = (await SignAllTransactions(new Transaction[] { transaction }))[0];
             return await ActiveRpcClient.SendTransactionAsync(
                 Convert.ToBase64String(signedTransaction.Serialize()),
                 skipPreflight: skipPreflight, preFlightCommitment: commitment);

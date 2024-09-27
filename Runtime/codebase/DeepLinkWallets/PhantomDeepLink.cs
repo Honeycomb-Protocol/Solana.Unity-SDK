@@ -19,24 +19,76 @@ using Pbkdf2Params = Solana.Unity.KeyStore.Model.Pbkdf2Params;
 
 namespace Solana.Unity.SDK
 {
-    public class PhantomDeepLink: WalletBase
+    [Serializable]
+    public class PhantomWalletOptions
+    {
+        [SerializeField]
+        private string apiVersion = "v1";
+        public virtual string ApiVersion
+        {
+            get => apiVersion;
+            set => apiVersion = value;
+        }
+
+        [SerializeField]
+        private string appMetaDataUrl = "https://github.com/magicblock-labs/Solana.Unity-SDK";
+        public virtual string AppMetaDataUrl
+        {
+            get => appMetaDataUrl;
+            set => appMetaDataUrl = value;
+        }
+
+        [SerializeField]
+        private string deeplinkUrlScheme = "unitydl";
+        public virtual string DeeplinkUrlScheme
+        {
+            get => deeplinkUrlScheme;
+            set => deeplinkUrlScheme = value;
+        }
+
+        [SerializeField]
+        private string sessionEncryptionPassword = "use a strong password";
+        public virtual string SessionEncryptionPassword
+        {
+            get => sessionEncryptionPassword;
+            set => sessionEncryptionPassword = value;
+        }
+
+        [SerializeField]
+        private string baseUrl = "https://phantom.app";
+        public virtual string BaseUrl
+        {
+            get => baseUrl;
+            set => baseUrl = value;
+        }
+
+        [SerializeField]
+        private string walletName = "phantom";
+        public virtual string WalletName
+        {
+            get => walletName;
+            set => walletName = value;
+        }
+    }
+
+    public class PhantomDeepLink : WalletBase
     {
         private const string TempKpPrefEntry = "phantom-kp-session";
         private const string SessionIdPrefEntry = "phantom-session-id";
         private const string PhantomEncryptionPubKeyPrefEntry = "phantom-pk-encryption";
         private const string PhantomPublicKeyPrefEntry = "phantom-pk-session";
-        
+
         private readonly PhantomWalletOptions _deepLinksWalletOptions;
-        
+
         private static Account _tmpPhantomConnectionAccount = new();
-        private static byte[] PhantomConnectionAccountPrivateKey 
+        private static byte[] PhantomConnectionAccountPrivateKey
             => ArrayHelpers.SubArray(_tmpPhantomConnectionAccount.PrivateKey.KeyBytes, 0, 32);
         private static byte[] PhantomConnectionAccountPublicKey =>
             MontgomeryCurve25519.GetPublicKey(PhantomConnectionAccountPrivateKey);
-        
+
         private string _sessionId;
         private byte[] _phantomEncryptionPubKey;
-        
+
         private TaskCompletionSource<Account> _loginTaskCompletionSource;
         private TaskCompletionSource<Transaction> _signedTransactionTaskCompletionSource;
         private TaskCompletionSource<Transaction[]> _signedAllTransactionsTaskCompletionSource;
@@ -44,7 +96,7 @@ namespace Solana.Unity.SDK
 
         public PhantomDeepLink(
             PhantomWalletOptions deepLinksWalletOptions,
-            RpcCluster rpcCluster = RpcCluster.DevNet, string customRpcUri = null, string customStreamingRpcUri = null, bool autoConnectOnStartup = false) 
+            RpcCluster rpcCluster = RpcCluster.DevNet, string customRpcUri = null, string customStreamingRpcUri = null, bool autoConnectOnStartup = false)
             : base(rpcCluster, customRpcUri, customStreamingRpcUri, autoConnectOnStartup)
         {
             _deepLinksWalletOptions = deepLinksWalletOptions;
@@ -73,7 +125,7 @@ namespace Solana.Unity.SDK
             StartLogin();
             return _loginTaskCompletionSource.Task;
         }
-        
+
         public override void Logout()
         {
             StartDisconnect();
@@ -107,7 +159,7 @@ namespace Solana.Unity.SDK
         {
             throw new NotImplementedException();
         }
-        
+
         private RpcCluster GetCluster()
         {
             return RpcCluster switch
@@ -119,7 +171,7 @@ namespace Solana.Unity.SDK
                 _ => RpcCluster.MainNet
             };
         }
-        
+
         #region DeepLinks
 
         private void StartLogin()
@@ -134,19 +186,19 @@ namespace Solana.Unity.SDK
             );
             Application.OpenURL(url);
         }
-        
+
         private void StartDisconnect()
         {
             var url = Utils.CreateDisconnectDeepLink(
                 phantomEncryptionPubKey: _phantomEncryptionPubKey,
                 connectionPublicKey: Encoders.Base58.EncodeData(PhantomConnectionAccountPublicKey),
                 phantomConnectionAccountPrivateKey: PhantomConnectionAccountPrivateKey,
-                baseUrl:  _deepLinksWalletOptions.BaseUrl,
-                redirectScheme:  _deepLinksWalletOptions.DeeplinkUrlScheme,
+                baseUrl: _deepLinksWalletOptions.BaseUrl,
+                redirectScheme: _deepLinksWalletOptions.DeeplinkUrlScheme,
                 apiVersion: _deepLinksWalletOptions.ApiVersion,
                 sessionId: _sessionId,
                 cluster: GetCluster()
-                
+
             );
             Application.OpenURL(url);
         }
@@ -158,12 +210,12 @@ namespace Solana.Unity.SDK
                 phantomEncryptionPubKey: _phantomEncryptionPubKey,
                 connectionPublicKey: Encoders.Base58.EncodeData(PhantomConnectionAccountPublicKey),
                 phantomConnectionAccountPrivateKey: PhantomConnectionAccountPrivateKey,
-                baseUrl:  _deepLinksWalletOptions.BaseUrl,
-                redirectScheme:  _deepLinksWalletOptions.DeeplinkUrlScheme,
+                baseUrl: _deepLinksWalletOptions.BaseUrl,
+                redirectScheme: _deepLinksWalletOptions.DeeplinkUrlScheme,
                 apiVersion: _deepLinksWalletOptions.ApiVersion,
                 sessionId: _sessionId,
                 cluster: GetCluster()
-                
+
             );
             Application.OpenURL(url);
         }
@@ -183,7 +235,7 @@ namespace Solana.Unity.SDK
             );
             Application.OpenURL(url);
         }
-        
+
         private void StartSignMessage(byte[] message)
         {
             var url = Utils.CreateSignMessageDeepLink(
@@ -191,17 +243,17 @@ namespace Solana.Unity.SDK
                 phantomEncryptionPubKey: _phantomEncryptionPubKey,
                 connectionPublicKey: Encoders.Base58.EncodeData(PhantomConnectionAccountPublicKey),
                 phantomConnectionAccountPrivateKey: PhantomConnectionAccountPrivateKey,
-                baseUrl:  _deepLinksWalletOptions.BaseUrl,
-                redirectScheme:  _deepLinksWalletOptions.DeeplinkUrlScheme,
+                baseUrl: _deepLinksWalletOptions.BaseUrl,
+                redirectScheme: _deepLinksWalletOptions.DeeplinkUrlScheme,
                 apiVersion: _deepLinksWalletOptions.ApiVersion,
                 sessionId: _sessionId,
                 cluster: GetCluster()
-                
+
             );
             Application.OpenURL(url);
         }
-        
-        #endregion        
+
+        #endregion
 
         #region Callbacks
 
@@ -268,7 +320,7 @@ namespace Solana.Unity.SDK
                 Debug.LogError($"Deeplink error: {error.errorCode} {error.errorMessage}");
             }
         }
-        
+
         private void ParseSuccessfullySignedAllTransactions(string url)
         {
             var result = ParseQueryString(url);
@@ -338,22 +390,23 @@ namespace Solana.Unity.SDK
         private static Dictionary<string, string> ParseQueryString(string url)
         {
             var querystring = url.Substring(url.IndexOf('?') + 1);
-            var pairs = querystring.Split('&'); 
-            var dict = pairs.Select(pair => {
-                var valuePair = pair.Split('='); 
+            var pairs = querystring.Split('&');
+            var dict = pairs.Select(pair =>
+            {
+                var valuePair = pair.Split('=');
                 return new KeyValuePair<string, string>(valuePair[0], valuePair[1]);
-            }) .ToDictionary((kvp) => kvp.Key, (kvp) => kvp.Value); 
+            }).ToDictionary((kvp) => kvp.Key, (kvp) => kvp.Value);
             return dict;
         }
 
         #endregion
 
         #region Utils
-        
+
         private void SaveSessionInfo(PublicKey account)
         {
             var password = DeriveEncryptionPassword(Web3.Account.PublicKey);
-            
+
             MainThreadDispatcher.Instance().Enqueue(
                 SaveEncryptedSecret(
                     password,
@@ -365,7 +418,7 @@ namespace Solana.Unity.SDK
             PlayerPrefs.SetString(PhantomEncryptionPubKeyPrefEntry, phantomEncryptionPubKey);
             PlayerPrefs.SetString(PhantomPublicKeyPrefEntry, account);
         }
-        
+
         private void LoadSessionInfo(PublicKey account)
         {
             var password = DeriveEncryptionPassword(account);
@@ -378,7 +431,7 @@ namespace Solana.Unity.SDK
             var phantomEncryptionPubKey = PlayerPrefs.GetString(PhantomEncryptionPubKeyPrefEntry);
             _phantomEncryptionPubKey = Encoders.Base58.DecodeData(phantomEncryptionPubKey);
         }
-        
+
         private void DestroySessionInfo()
         {
             _tmpPhantomConnectionAccount = new();
@@ -395,14 +448,15 @@ namespace Solana.Unity.SDK
         /// Deterministic password derivation, each account has a unique password
         /// </summary>
         /// <returns></returns>
-        private string DeriveEncryptionPassword([NotNull] PublicKey account){
+        private string DeriveEncryptionPassword([NotNull] PublicKey account)
+        {
             if (account == null) throw new ArgumentNullException(nameof(account));
             var rawData = account.Key + _deepLinksWalletOptions.SessionEncryptionPassword + Application.platform;
             using SHA256 sha256Hash = SHA256.Create();
             var bytes = sha256Hash.ComputeHash(Encoding.UTF8.GetBytes(rawData));
             return Encoding.UTF8.GetString(bytes);
         }
-        
+
         /// <summary>
         /// Save an Encrypted Secret in a secure way
         /// </summary>
@@ -412,27 +466,29 @@ namespace Solana.Unity.SDK
         /// <param name="account">The account public key to associated the secret</param>
         /// <returns></returns>
         private IEnumerator SaveEncryptedSecret(
-            string password, 
-            string secret, 
+            string password,
+            string secret,
             string prefKey,
             [NotNull] PublicKey account)
         {
             if (account == null) throw new ArgumentNullException(nameof(account));
             yield return new WaitForSeconds(.1f);
             password ??= "";
-            
+
             var keystoreService = new KeyStorePbkdf2Service();
             var stringByteArray = Encoding.UTF8.GetBytes(secret);
             var pbkdf2Params = new Pbkdf2Params()
             {
-                Dklen = 32, Count = 10000, Prf = "hmac-sha256"
+                Dklen = 32,
+                Count = 10000,
+                Prf = "hmac-sha256"
             };
             var encryptedKeystoreJson = keystoreService.EncryptAndGenerateKeyStoreAsJson(
                 password, stringByteArray, account.Key, pbkdf2Params);
 
             PlayerPrefs.SetString(prefKey, encryptedKeystoreJson);
         }
-        
+
         /// <summary>
         /// Returns an instance of Keypair from a secret key
         /// </summary>
@@ -444,7 +500,8 @@ namespace Solana.Unity.SDK
             {
                 var wallet = new Wallet.Wallet(new PrivateKey(secretKey).KeyBytes, "", SeedMode.Bip39);
                 return wallet.Account;
-            }catch (ArgumentException)
+            }
+            catch (ArgumentException)
             {
                 return null;
             }
