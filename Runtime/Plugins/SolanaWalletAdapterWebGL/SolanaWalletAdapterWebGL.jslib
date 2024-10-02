@@ -131,13 +131,16 @@ mergeInto(LibraryManager.library, {
     transactionsPtr,
     callback
   ) {
+    const getIx = (tx) =>
+      (transaction.getInstructions
+        ? transaction.getInstructions()
+        : transaction.instructions) || [];
     try {
       const walletName = UTF8ToString(walletNamePtr);
       var base64transactionsStr = UTF8ToString(transactionsPtr);
       var base64transactions = base64transactionsStr.split(",");
       let signedTransactions;
       const instructionIxCounts = [];
-      debugger;
 
       if (walletName === "XNFT") {
         let transactions = [];
@@ -146,10 +149,7 @@ mergeInto(LibraryManager.library, {
             base64transactions[i]
           );
           transactions.push(transaction);
-          instructionIxCounts.push(
-            (transaction.getInstructions?.() || transaction.instructions)
-              ?.length
-          );
+          instructionIxCounts.push(getIx(transaction).length);
         }
         signedTransactions = await window.xnft.solana.signAllTransactions(
           transactions
@@ -163,10 +163,7 @@ mergeInto(LibraryManager.library, {
       var serializedSignedTransactions = [];
       for (var i = 0; i < signedTransactions.length; i++) {
         var signedTransaction = signedTransactions[i];
-        let after = (
-          signedTransaction.getInstructions?.() ||
-          signedTransaction.instructions
-        )?.length;
+        let after = getIx(signedTransaction).length;
         if (after != instructionIxCounts[i]) {
           serializedSignedTransactions.push(
             Buffer.from(signedTransaction.serialize()).toString("base64")
