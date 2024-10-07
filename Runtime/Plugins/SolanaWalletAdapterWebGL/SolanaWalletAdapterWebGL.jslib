@@ -131,7 +131,7 @@ mergeInto(LibraryManager.library, {
     transactionsPtr,
     callback
   ) {
-    const getIx = (tx) =>
+    const getIx = (transaction) =>
       (transaction.getInstructions
         ? transaction.getInstructions()
         : transaction.instructions) || [];
