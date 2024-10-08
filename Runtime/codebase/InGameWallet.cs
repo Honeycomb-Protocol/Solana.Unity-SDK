@@ -71,8 +71,8 @@ namespace Solana.Unity.SDK
                 var wallet = new Wallet.Wallet(mnem);
                 account = wallet.Account;
             }
-            if(account == null) return Task.FromResult<Account>(null);
-            
+            if (account == null) return Task.FromResult<Account>(null);
+
             MainThreadDispatcher.Instance().Enqueue(SaveEncryptedAccount(password,
                 mnem != null ? mnem.ToString() : secret, account.PublicKey));
 
@@ -85,12 +85,14 @@ namespace Solana.Unity.SDK
         {
             yield return new WaitForSeconds(.1f);
             password ??= "";
-            
+
             var keystoreService = new KeyStorePbkdf2Service();
             var stringByteArray = Encoding.UTF8.GetBytes(secret);
             var pbkdf2Params = new Pbkdf2Params()
             {
-                Dklen = 32, Count = 10000, Prf = "hmac-sha256"
+                Dklen = 32,
+                Count = 10000,
+                Prf = "hmac-sha256"
             };
             var encryptedKeystoreJson = keystoreService.EncryptAndGenerateKeyStoreAsJson(
                 password, stringByteArray, account.Key, pbkdf2Params);
@@ -107,7 +109,11 @@ namespace Solana.Unity.SDK
 
         protected override Task<Transaction[]> _SignAllTransactions(Transaction[] transactions)
         {
-            throw new NotImplementedException();
+            foreach (Transaction transaction in transactions)
+            {
+                transaction.PartialSign(Account);
+            }
+            return Task.FromResult(transactions);
         }
 
         public override Task<byte[]> SignMessage(byte[] message)
@@ -161,7 +167,8 @@ namespace Solana.Unity.SDK
             {
                 var wallet = new Wallet.Wallet(new PrivateKey(secretKey).KeyBytes, "", SeedMode.Bip39);
                 return wallet.Account;
-            }catch (ArgumentException)
+            }
+            catch (ArgumentException)
             {
                 return null;
             }
@@ -223,9 +230,9 @@ namespace Solana.Unity.SDK
         protected static void SavePlayerPrefs(string key, string value)
         {
             PlayerPrefs.SetString(key, value);
-            #if UNITY_WEBGL
+#if UNITY_WEBGL
             PlayerPrefs.Save();
-            #endif
+#endif
         }
     }
 }
