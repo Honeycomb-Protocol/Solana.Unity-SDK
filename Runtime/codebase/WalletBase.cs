@@ -9,6 +9,7 @@ using Solana.Unity.Rpc.Core.Http;
 using Solana.Unity.Rpc.Models;
 using Solana.Unity.Rpc.Types;
 using Solana.Unity.Wallet;
+using Solana.Unity.Wallet.Utilities;
 using Solana.Unity.Wallet.Bip39;
 using UnityEngine;
 using WebSocketSharp;
@@ -28,12 +29,12 @@ namespace Solana.Unity.SDK
     public abstract class WalletBase : IWalletBase
     {
         public const long SolLamports = 1000000000;
-        public RpcCluster RpcCluster  { get; }
-        
+        public RpcCluster RpcCluster { get; }
+
         public int RpcMaxHits = 30;
         public int RpcMaxHitsPerSeconds = 1;
 
-        private readonly Dictionary<int, Cluster> _rpcClusterMap = new ()
+        private readonly Dictionary<int, Cluster> _rpcClusterMap = new()
         {
             { 0, Cluster.MainNet },
             { 1, Cluster.DevNet },
@@ -41,7 +42,7 @@ namespace Solana.Unity.SDK
             { 3, Cluster.LocalNet }
         };
 
-        protected readonly Dictionary<int, string> RPCNameMap = new ()
+        protected readonly Dictionary<int, string> RPCNameMap = new()
         {
             { 0, "mainnet-beta" },
             { 1, "devnet" },
@@ -58,8 +59,8 @@ namespace Solana.Unity.SDK
         private IStreamingRpcClient _activeStreamingRpcClient;
         private TaskCompletionSource<object> _webSocketConnection;
         public IStreamingRpcClient ActiveStreamingRpcClient => StartStreamingConnection();
-        public Account Account { get;protected set; }
-        public Mnemonic Mnemonic { get;protected set; }
+        public Account Account { get; protected set; }
+        public Mnemonic Mnemonic { get; protected set; }
 
         protected WalletBase(RpcCluster rpcCluster = RpcCluster.DevNet, string customRpcUri = null, string customStreamingRpcUri = null, bool autoConnectOnStartup = false)
         {
@@ -115,7 +116,7 @@ namespace Solana.Unity.SDK
         /// <inheritdoc />
         public async Task<double> GetBalance(PublicKey publicKey, Commitment commitment = Commitment.Confirmed)
         {
-            var balance= await ActiveRpcClient.GetBalanceAsync(publicKey, commitment);
+            var balance = await ActiveRpcClient.GetBalanceAsync(publicKey, commitment);
             return (double)(balance.Result?.Value ?? 0) / SolLamports;
         }
 
@@ -159,7 +160,7 @@ namespace Solana.Unity.SDK
                 amount,
                 Account
             ));
-            return await SignAndSendTransaction(transaction, commitment: commitment);
+            return await SignAndSendTransaction(transaction, commitment: commitment, skipPreflight: true);
         }
 
         /// <inheritdoc />
@@ -214,13 +215,33 @@ namespace Solana.Unity.SDK
         /// <returns></returns>
         protected abstract Task<Transaction> _SignTransaction(Transaction transaction);
 
+        private void LogSignatures(string message, List<SignaturePubKeyPair> Signatures)
+        {
+            if (Signatures.Count > 0)
+            {
+                Debug.LogFormat("{0} {1}", message, Signatures.Count.ToString());
+                foreach (var signature in Signatures)
+                {
+                    Debug.LogFormat("{0} -> {1}:{2}", message, Encoders.Base58.EncodeData(signature.PublicKey), Encoders.Base58.EncodeData(signature.Signature));
+                }
+            }
+            else
+            {
+                Debug.LogWarning(message + " No signatures found in the transaction.");
+            }
+        }
         /// <inheritdoc />
         public virtual async Task<Transaction> SignTransaction(Transaction transaction)
         {
+            LogSignatures("1", transaction.Signatures);
             transaction.Sign(Account);
+            LogSignatures("2", transaction.Signatures);
             transaction.Signatures = DeduplicateTransactionSignatures(transaction.Signatures, allowEmptySignatures: true);
+            LogSignatures("3", transaction.Signatures);
             var tx = await _SignTransaction(transaction);
+            LogSignatures("4", transaction.Signatures);
             tx.Signatures = DeduplicateTransactionSignatures(tx.Signatures);
+            LogSignatures("5", transaction.Signatures);
             return tx;
         }
 
@@ -235,16 +256,21 @@ namespace Solana.Unity.SDK
         /// <inheritdoc />
         public virtual async Task<Transaction[]> SignAllTransactions(Transaction[] transactions)
         {
+            LogSignatures("1", transactions[0].Signatures);
             foreach (var transaction in transactions)
             {
                 transaction.PartialSign(Account);
+                LogSignatures("2", transaction.Signatures);
                 transaction.Signatures = DeduplicateTransactionSignatures(transaction.Signatures, allowEmptySignatures: true);
+                LogSignatures("3", transaction.Signatures);
             }
             Transaction[] signedTxs = await _SignAllTransactions(transactions);
+            LogSignatures("4", transactions[0].Signatures);
             for (int i = 0; i < signedTxs.Length; i++)
             {
                 signedTxs[i].Signatures = DeduplicateTransactionSignatures(signedTxs[i].Signatures);
             }
+            LogSignatures("5", transactions[0].Signatures);
             return signedTxs;
         }
 
@@ -256,6 +282,7 @@ namespace Solana.Unity.SDK
             Commitment commitment = Commitment.Confirmed)
         {
             var signedTransaction = await SignTransaction(transaction);
+            // var signedTransaction = (await SignAllTransactions(new Transaction[] { transaction }))[0];
             return await ActiveRpcClient.SendTransactionAsync(
                 Convert.ToBase64String(signedTransaction.Serialize()),
                 skipPreflight: skipPreflight, preFlightCommitment: commitment);
@@ -291,7 +318,7 @@ namespace Solana.Unity.SDK
             bool useCache = true,
             int maxSeconds = 0)
         {
-            if(ActiveRpcClient == null) return null;
+            if (ActiveRpcClient == null) return null;
             var exists = _commitmentCache.TryGetValue(commitment.ToString(), out var cacheEntry);
             if (useCache && maxSeconds > 0)
             {
@@ -306,8 +333,8 @@ namespace Solana.Unity.SDK
                 }
             }
             var blockhash = (await ActiveRpcClient.GetLatestBlockHashAsync(commitment)).Result?.Value?.Blockhash;
-            if(exists) _commitmentCache.Remove(commitment.ToString());
-            if(blockhash != null && useCache)_commitmentCache.Add(commitment.ToString(), (DateTime.Now, blockhash));
+            if (exists) _commitmentCache.Remove(commitment.ToString());
+            if (blockhash != null && useCache) _commitmentCache.Add(commitment.ToString(), (DateTime.Now, blockhash));
             return blockhash;
         }
 
@@ -326,8 +353,8 @@ namespace Solana.Unity.SDK
                 if (_activeRpcClient == null && CustomRpcUri.IsNullOrEmpty())
                 {
                     _activeRpcClient = ClientFactory.GetClient(
-                        _rpcClusterMap[(int)RpcCluster], 
-                        null, 
+                        _rpcClusterMap[(int)RpcCluster],
+                        null,
                         rateLimiter: UnityRateLimiter.Create().AllowHits(RpcMaxHits).PerSeconds(RpcMaxHitsPerSeconds)
                     );
                 }
@@ -387,7 +414,7 @@ namespace Solana.Unity.SDK
         public Task AwaitWsRpcConnection()
         {
             var wsConnection = ActiveStreamingRpcClient;
-            if(wsConnection?.State.Equals(WebSocketState.Open) ?? false) return Task.CompletedTask;
+            if (wsConnection?.State.Equals(WebSocketState.Open) ?? false) return Task.CompletedTask;
             return _webSocketConnection.Task;
         }
 
@@ -399,24 +426,32 @@ namespace Solana.Unity.SDK
         /// <param name="allowEmptySignatures"></param>
         /// <returns></returns>
         private static List<SignaturePubKeyPair> DeduplicateTransactionSignatures(
-            List<SignaturePubKeyPair> signatures, bool allowEmptySignatures = false)
+            List<SignaturePubKeyPair> signatures, bool allowEmptySignatures = false, bool preferNonEmptySignature = true)
         {
+            Debug.Log("Deduplicating signatures");
             var signaturesList = new List<SignaturePubKeyPair>();
             var signaturesSet = new HashSet<PublicKey>();
             var emptySgn = new byte[64];
             foreach (var sgn in signatures)
             {
-                if (sgn.Signature.SequenceEqual(emptySgn) && !allowEmptySignatures)
+                if (signaturesSet.Contains(sgn.PublicKey))
+                {
+                    Debug.LogFormat("Skipping duplicate signature for {0} {1}", sgn.PublicKey.ToString(), sgn.Signature.ToString());
+                    continue;
+                }
+                if (sgn.Signature.SequenceEqual(emptySgn) && (!allowEmptySignatures || preferNonEmptySignature))
                 {
                     var notEmptySig = signatures.FirstOrDefault(
                         s => s.PublicKey.Equals(sgn.PublicKey) && !s.Signature.SequenceEqual(emptySgn));
                     if (notEmptySig != null && !signaturesSet.Contains(notEmptySig.PublicKey))
                     {
+                        Debug.LogFormat("Replacing empty signature with non-empty signature for {0}", sgn.PublicKey.ToString());
                         signaturesSet.Add(notEmptySig.PublicKey);
                         signaturesList.Add(notEmptySig);
                     }
                 }
                 if ((sgn.Signature.SequenceEqual(emptySgn) && !allowEmptySignatures) || signaturesSet.Contains(sgn.PublicKey)) continue;
+                Debug.LogFormat("Adding signature for {0}", sgn.PublicKey.ToString());
                 signaturesSet.Add(sgn.PublicKey);
                 signaturesList.Add(sgn);
             }
